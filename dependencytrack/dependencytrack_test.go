@@ -66,3 +66,47 @@ func Test_comparePolicyConditions(t *testing.T) {
 		})
 	}
 }
+
+func Test_compareTags(t *testing.T) {
+	type args struct {
+		aa []dtrack.Tag
+		bb []dtrack.Tag
+	}
+	tests := []struct {
+		name        string
+		args        args
+		wantRemoved []dtrack.Tag
+		wantAdded   []dtrack.Tag
+	}{
+		{
+			name: "success",
+			args: args{
+				aa: []dtrack.Tag{
+					{Name: "tag1"},
+					{Name: "tag2"},
+				},
+				bb: []dtrack.Tag{
+					{Name: "tag2"},
+					{Name: "tag3"},
+				},
+			},
+			wantRemoved: []dtrack.Tag{
+				{Name: "tag1"},
+			},
+			wantAdded: []dtrack.Tag{
+				{Name: "tag3"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotRemoved, gotAdded := compareTags(tt.args.aa, tt.args.bb)
+			if !reflect.DeepEqual(gotRemoved, tt.wantRemoved) {
+				t.Errorf("compareTags() gotRemoved = %v, want %v", gotRemoved, tt.wantRemoved)
+			}
+			if !reflect.DeepEqual(gotAdded, tt.wantAdded) {
+				t.Errorf("compareTags() gotAdded = %v, want %v", gotAdded, tt.wantAdded)
+			}
+		})
+	}
+}

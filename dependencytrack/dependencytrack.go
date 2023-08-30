@@ -32,7 +32,7 @@ func New(baseURL, apiKey string, timeout time.Duration) (*DependencyTrack, error
 func (d *DependencyTrack) ApplyPolicy(ctx context.Context, name, operator, violationState string, projectNameVersions, tags, cves []string) (dtrack.Policy, error) {
 	var policy dtrack.Policy
 
-	log.Printf("Creating or updating policy %q operator:%s, violationState: %s projectNameVersions:%v, tags:%v", name, operator, violationState, projectNameVersions, tags)
+	log.Printf("ApplyPolicy %q operator:%s, violationState: %s projectNameVersions:%v, tags:%v", name, operator, violationState, projectNameVersions, tags)
 
 	if err := validatePolicyOperator(dtrack.PolicyOperator(operator)); err != nil {
 		return policy, err
@@ -93,25 +93,25 @@ func (d *DependencyTrack) ApplyPolicy(ctx context.Context, name, operator, viola
 	policyUUID := policy.UUID
 
 	if len(tags) > 0 {
-		remove, add := compareSlice(tagToSlice(policy.Tags), tags)
+		remove, add := compareTags(policy.Tags, sliceToTags(tags))
 		if len(remove) > 0 {
-			log.Printf("Removing tags %q from policy %q", remove, policy.Name)
+			log.Printf("Removing tags %v from policy %q", remove, policy.Name)
 			for _, r := range remove {
-				if _, err := d.Client.Policy.DeleteTag(ctx, policyUUID, r); err != nil {
-					log.Printf("WARN: failed to remove tag %q from policy %q: %s", r, policy.Name, err)
+				if _, err := d.Client.Policy.DeleteTag(ctx, policyUUID, r.Name); err != nil {
+					log.Printf("WARN: failed to remove tag %q from policy %q: %s", r.Name, policy.Name, err)
 					continue
 				}
-				log.Printf("Removed tag %q from policy %q", r, policy.Name)
+				log.Printf("Removed tag %q from policy %q", r.Name, policy.Name)
 			}
 		}
 		if len(add) > 0 {
-			log.Printf("Adding tags %q to policy %q", add, policy.Name)
+			log.Printf("Adding tags %v to policy %q", add, policy.Name)
 			for _, a := range add {
-				if _, err := d.Client.Policy.AddTag(ctx, policyUUID, a); err != nil {
-					log.Printf("WARN: failed to add tag %q from policy %q: %s", a, policy.Name, err)
+				if _, err := d.Client.Policy.AddTag(ctx, policyUUID, a.Name); err != nil {
+					log.Printf("WARN: failed to add tag %q from policy %q: %s", a.Name, policy.Name, err)
 					continue
 				}
-				log.Printf("Added tag %q to policy %q", a, policy.Name)
+				log.Printf("Added tag %q to policy %q", a.Name, policy.Name)
 			}
 		}
 	}
@@ -241,6 +241,36 @@ func comparePolicyConditions(aa, bb []dtrack.PolicyCondition) (removed, added []
 	return removed, added
 }
 
+func compareTags(aa, bb []dtrack.Tag) (removed, added []dtrack.Tag) {
+	aaMap := make(map[string]dtrack.Tag)
+	for _, a := range aa {
+		aaMap[a.Name] = a
+	}
+
+	for _, b := range bb {
+		_, ok := aaMap[b.Name]
+		if ok {
+			delete(aaMap, b.Name)
+			continue
+		}
+		added = append(added, b)
+	}
+
+	for _, a := range aaMap {
+		removed = append(removed, a)
+	}
+
+	return removed, added
+}
+
+func sliceToTags(slice []string) []dtrack.Tag {
+	tags := make([]dtrack.Tag, len(slice))
+	for i, s := range slice {
+		tags[i] = dtrack.Tag{Name: s}
+	}
+	return tags
+}
+
 func validatePolicyOperator(operator dtrack.PolicyOperator) error {
 	switch operator {
 	case dtrack.PolicyOperatorAny,
@@ -262,43 +292,6 @@ func validatePolicyViolationState(violationState dtrack.PolicyViolationState) er
 	}
 }
 
-func tagToSlice(tags []dtrack.Tag) []string {
-	slice := make([]string, len(tags))
-	for i, t := range tags {
-		slice[i] = t.Name
-	}
-	return slice
-}
-
-func compareSlice(a, b []string) (removed, added []string) {
-	aMap := make(map[string]bool)
-	for _, element := range a {
-		aMap[element] = true
-	}
-
-	for _, element := range b {
-		if _, ok := aMap[element]; ok {
-			delete(aMap, element)
-		} else {
-			added = append(added, element)
-		}
-	}
-
-	for element := range aMap {
-		removed = append(removed, element)
-	}
-
-	return removed, added
-}
-
-func conditionsToValue(conds []dtrack.PolicyCondition) []string {
-	slice := make([]string, len(conds))
-	for i, cond := range conds {
-		slice[i] = cond.Value
-	}
-	return slice
-}
-
 func projectsToProjectUUIDs(projects []dtrack.Project) []uuid.UUID {
 	projectUUIDs := make([]uuid.UUID, len(projects))
 	for i, p := range projects {
@@ -316,6 +309,7 @@ func compareUUID(a, b []uuid.UUID) (removed, added []uuid.UUID) {
 	for _, element := range b {
 		if _, ok := aMap[element]; ok {
 			delete(aMap, element)
+			continue
 		} else {
 			added = append(added, element)
 		}
