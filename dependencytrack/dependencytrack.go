@@ -68,8 +68,9 @@ func (d *DependencyTrack) ApplyPolicy(ctx context.Context, name, operator, viola
 			return policy, err
 		}
 
-		// FIXME: workaround for policy.ViolationState always "INFO" when create policy
+		// FIXME: https://github.com/DependencyTrack/dependency-track/issues/2365
 		policy.ViolationState = newPolicy.ViolationState
+		policy.Operator = newPolicy.Operator
 		policy, err = d.Client.Policy.Update(ctx, policy)
 		if err != nil {
 			return policy, err
@@ -170,39 +171,6 @@ func (d *DependencyTrack) ApplyPolicy(ctx context.Context, name, operator, viola
 			}
 		}
 	}
-
-	// if len(cves) > 0 {
-	// 	currentCVEs := conditionsToValue(policy.PolicyConditions)
-	// 	remove, add := compareSlice(currentCVEs, cves)
-	// 	if len(remove) > 0 {
-	// 		log.Printf("Removing CVEs %q from policy %q", remove, policy.Name)
-	// 		for i, r := range remove {
-	// 			id := policy.PolicyConditions[i].UUID
-	// 			log.Printf("%+v", policy.PolicyConditions[i])
-	// 			if err := d.Client.PolicyCondition.Delete(ctx, id); err != nil {
-	// 				return policy, err
-	// 			}
-
-	// 			log.Printf("Removed CVE %q from policy %q", r, policy.Name)
-	// 		}
-	// 	}
-
-	// 	if len(add) > 0 {
-	// 		log.Printf("Adding CVEs %q from policy %q", add, policy.Name)
-	// 		for _, a := range add {
-	// 			cond := dtrack.PolicyCondition{
-	// 				Subject:  dtrack.PolicyConditionSubjectVulnerabilityID,
-	// 				Operator: dtrack.PolicyConditionOperatorIs,
-	// 				Value:    a,
-	// 			}
-	// 			_, err = d.Client.PolicyCondition.Create(ctx, policyUUID, cond)
-	// 			if err != nil {
-	// 				return policy, err
-	// 			}
-	// 			log.Printf("Added CVE %q from policy %q", a, policy.Name)
-	// 		}
-	// 	}
-	// }
 
 	if len(cves) > 0 {
 		desieredConditions := []dtrack.PolicyCondition{}
