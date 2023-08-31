@@ -99,8 +99,8 @@ func (d *DependencyTrack) UpdatePolicy(ctx context.Context, policy dtrack.Policy
 
 func (d *DependencyTrack) NeedsUpdatePolicy(current, desierd dtrack.Policy) bool {
 	switch {
-	case current.Operator != desierd.Operator:
-	case current.ViolationState != desierd.ViolationState:
+	case current.Operator != desierd.Operator,
+		current.ViolationState != desierd.ViolationState:
 		return true
 	}
 

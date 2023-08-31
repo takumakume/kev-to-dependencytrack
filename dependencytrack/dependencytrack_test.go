@@ -64,3 +64,48 @@ func TestIsNotFound(t *testing.T) {
 		})
 	}
 }
+
+func TestDependencyTrack_NeedsUpdatePolicy(t *testing.T) {
+	type args struct {
+		current  dtrack.Policy
+		desired  dtrack.Policy
+		expected bool
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "same policy",
+			args: args{
+				current:  dtrack.Policy{Operator: dtrack.PolicyOperatorAll, ViolationState: dtrack.PolicyViolationStateFail},
+				desired:  dtrack.Policy{Operator: dtrack.PolicyOperatorAll, ViolationState: dtrack.PolicyViolationStateFail},
+				expected: false,
+			},
+		},
+		{
+			name: "different operator",
+			args: args{
+				current:  dtrack.Policy{Operator: dtrack.PolicyOperatorAll, ViolationState: dtrack.PolicyViolationStateFail},
+				desired:  dtrack.Policy{Operator: dtrack.PolicyOperatorAny, ViolationState: dtrack.PolicyViolationStateFail},
+				expected: true,
+			},
+		},
+		{
+			name: "different violation state",
+			args: args{
+				current:  dtrack.Policy{Operator: dtrack.PolicyOperatorAll, ViolationState: dtrack.PolicyViolationStateFail},
+				desired:  dtrack.Policy{Operator: dtrack.PolicyOperatorAll, ViolationState: dtrack.PolicyViolationStateWarn},
+				expected: true,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &DependencyTrack{}
+			if got := d.NeedsUpdatePolicy(tt.args.current, tt.args.desired); got != tt.args.expected {
+				t.Errorf("DependencyTrack.NeedsUpdatePolicy() = %v, expected %v", got, tt.args.expected)
+			}
+		})
+	}
+}
