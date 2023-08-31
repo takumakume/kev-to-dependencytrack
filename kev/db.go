@@ -18,6 +18,8 @@ const (
 )
 
 type dbFetcher interface {
+	// dbFilePath() string
+	// downloadAtFilePath() string
 	download() error
 	needsUpdate() (bool, error)
 	read() ([]byte, error)
@@ -26,8 +28,7 @@ type dbFetcher interface {
 type db struct {
 	url      string
 	cacheDir string
-
-	clock clock.Clock
+	clock    clock.Clock
 }
 
 type dbOpts struct {

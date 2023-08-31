@@ -1,7 +1,7 @@
 .PHONY: mock
 mock: ## Generate mocks for testing.
 	mockgen -package=mock -source ./dependencytrack/dependencytrack.go -destination ./mock/dependencytrack_mock.go DependencyTrackClient
-	mockgen -package=mock -source ./kev/db.go -destination ./mock/db_mock.go dbFetcher
+	mockgen -package=kev -source ./kev/db.go -destination ./kev/db_mock.go dbFetcher
 
 .PHONY: go-deps
 go-deps:

@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	client_go "github.com/DependencyTrack/client-go"
+	dtrack "github.com/DependencyTrack/client-go"
 	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
 )
@@ -37,10 +37,10 @@ func (m *MockDependencyTrackClient) EXPECT() *MockDependencyTrackClientMockRecor
 }
 
 // AddProject mocks base method.
-func (m *MockDependencyTrackClient) AddProject(ctx context.Context, policyUUID, projectUUID uuid.UUID) (client_go.Policy, error) {
+func (m *MockDependencyTrackClient) AddProject(ctx context.Context, policyUUID, projectUUID uuid.UUID) (dtrack.Policy, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddProject", ctx, policyUUID, projectUUID)
-	ret0, _ := ret[0].(client_go.Policy)
+	ret0, _ := ret[0].(dtrack.Policy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -52,10 +52,10 @@ func (mr *MockDependencyTrackClientMockRecorder) AddProject(ctx, policyUUID, pro
 }
 
 // AddTag mocks base method.
-func (m *MockDependencyTrackClient) AddTag(ctx context.Context, policyUUID uuid.UUID, tagName string) (client_go.Policy, error) {
+func (m *MockDependencyTrackClient) AddTag(ctx context.Context, policyUUID uuid.UUID, tagName string) (dtrack.Policy, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddTag", ctx, policyUUID, tagName)
-	ret0, _ := ret[0].(client_go.Policy)
+	ret0, _ := ret[0].(dtrack.Policy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -67,10 +67,10 @@ func (mr *MockDependencyTrackClientMockRecorder) AddTag(ctx, policyUUID, tagName
 }
 
 // CreatePolicy mocks base method.
-func (m *MockDependencyTrackClient) CreatePolicy(ctx context.Context, policy client_go.Policy) (client_go.Policy, error) {
+func (m *MockDependencyTrackClient) CreatePolicy(ctx context.Context, policy dtrack.Policy) (dtrack.Policy, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreatePolicy", ctx, policy)
-	ret0, _ := ret[0].(client_go.Policy)
+	ret0, _ := ret[0].(dtrack.Policy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -82,10 +82,10 @@ func (mr *MockDependencyTrackClientMockRecorder) CreatePolicy(ctx, policy interf
 }
 
 // CreatePolicyCondition mocks base method.
-func (m *MockDependencyTrackClient) CreatePolicyCondition(ctx context.Context, policyUUID uuid.UUID, policyCondition client_go.PolicyCondition) (client_go.PolicyCondition, error) {
+func (m *MockDependencyTrackClient) CreatePolicyCondition(ctx context.Context, policyUUID uuid.UUID, policyCondition dtrack.PolicyCondition) (dtrack.PolicyCondition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreatePolicyCondition", ctx, policyUUID, policyCondition)
-	ret0, _ := ret[0].(client_go.PolicyCondition)
+	ret0, _ := ret[0].(dtrack.PolicyCondition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -111,10 +111,10 @@ func (mr *MockDependencyTrackClientMockRecorder) DeletePolicyCondition(ctx, poli
 }
 
 // DeleteProject mocks base method.
-func (m *MockDependencyTrackClient) DeleteProject(ctx context.Context, policyUUID, projectUUID uuid.UUID) (client_go.Policy, error) {
+func (m *MockDependencyTrackClient) DeleteProject(ctx context.Context, policyUUID, projectUUID uuid.UUID) (dtrack.Policy, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteProject", ctx, policyUUID, projectUUID)
-	ret0, _ := ret[0].(client_go.Policy)
+	ret0, _ := ret[0].(dtrack.Policy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -126,10 +126,10 @@ func (mr *MockDependencyTrackClientMockRecorder) DeleteProject(ctx, policyUUID, 
 }
 
 // DeleteTag mocks base method.
-func (m *MockDependencyTrackClient) DeleteTag(ctx context.Context, policyUUID uuid.UUID, tagName string) (client_go.Policy, error) {
+func (m *MockDependencyTrackClient) DeleteTag(ctx context.Context, policyUUID uuid.UUID, tagName string) (dtrack.Policy, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteTag", ctx, policyUUID, tagName)
-	ret0, _ := ret[0].(client_go.Policy)
+	ret0, _ := ret[0].(dtrack.Policy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -141,10 +141,10 @@ func (mr *MockDependencyTrackClientMockRecorder) DeleteTag(ctx, policyUUID, tagN
 }
 
 // GetPolicyForName mocks base method.
-func (m *MockDependencyTrackClient) GetPolicyForName(ctx context.Context, policyName string) (client_go.Policy, error) {
+func (m *MockDependencyTrackClient) GetPolicyForName(ctx context.Context, policyName string) (dtrack.Policy, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPolicyForName", ctx, policyName)
-	ret0, _ := ret[0].(client_go.Policy)
+	ret0, _ := ret[0].(dtrack.Policy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -156,10 +156,10 @@ func (mr *MockDependencyTrackClientMockRecorder) GetPolicyForName(ctx, policyNam
 }
 
 // GetProjectForNameVersion mocks base method.
-func (m *MockDependencyTrackClient) GetProjectForNameVersion(ctx context.Context, projectName, projectVersion string, excludeInactive, onlyRoot bool) (client_go.Project, error) {
+func (m *MockDependencyTrackClient) GetProjectForNameVersion(ctx context.Context, projectName, projectVersion string, excludeInactive, onlyRoot bool) (dtrack.Project, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetProjectForNameVersion", ctx, projectName, projectVersion, excludeInactive, onlyRoot)
-	ret0, _ := ret[0].(client_go.Project)
+	ret0, _ := ret[0].(dtrack.Project)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -171,10 +171,10 @@ func (mr *MockDependencyTrackClientMockRecorder) GetProjectForNameVersion(ctx, p
 }
 
 // GetProjectsForName mocks base method.
-func (m *MockDependencyTrackClient) GetProjectsForName(ctx context.Context, projectName string, excludeInactive, onlyRoot bool) ([]client_go.Project, error) {
+func (m *MockDependencyTrackClient) GetProjectsForName(ctx context.Context, projectName string, excludeInactive, onlyRoot bool) ([]dtrack.Project, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetProjectsForName", ctx, projectName, excludeInactive, onlyRoot)
-	ret0, _ := ret[0].([]client_go.Project)
+	ret0, _ := ret[0].([]dtrack.Project)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -186,7 +186,7 @@ func (mr *MockDependencyTrackClientMockRecorder) GetProjectsForName(ctx, project
 }
 
 // NeedsUpdatePolicy mocks base method.
-func (m *MockDependencyTrackClient) NeedsUpdatePolicy(current, desierd client_go.Policy) bool {
+func (m *MockDependencyTrackClient) NeedsUpdatePolicy(current, desierd dtrack.Policy) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NeedsUpdatePolicy", current, desierd)
 	ret0, _ := ret[0].(bool)
@@ -200,10 +200,10 @@ func (mr *MockDependencyTrackClientMockRecorder) NeedsUpdatePolicy(current, desi
 }
 
 // UpdatePolicy mocks base method.
-func (m *MockDependencyTrackClient) UpdatePolicy(ctx context.Context, policy client_go.Policy) (client_go.Policy, error) {
+func (m *MockDependencyTrackClient) UpdatePolicy(ctx context.Context, policy dtrack.Policy) (dtrack.Policy, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdatePolicy", ctx, policy)
-	ret0, _ := ret[0].(client_go.Policy)
+	ret0, _ := ret[0].(dtrack.Policy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
