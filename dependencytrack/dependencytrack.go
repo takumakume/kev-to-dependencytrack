@@ -46,8 +46,7 @@ var (
 
 func IsNotFound(err error) bool {
 	switch err {
-	case ErrPolicyNotFound:
-	case ErrProjectNotFound:
+	case ErrPolicyNotFound, ErrProjectNotFound:
 		return true
 	}
 
