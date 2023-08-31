@@ -17,18 +17,18 @@ func New() *KEV {
 }
 
 func (k *KEV) Init() error {
-	log.Println("Initializing KEV")
+	log.Println("initializing KEV")
 	needsUpdate, err := k.db.needsUpdate()
 	if err != nil {
 		return err
 	}
 	if needsUpdate {
-		log.Println("Downloading KEV")
+		log.Println("downloading KEV")
 		if err := k.db.download(); err != nil {
 			return err
 		}
 	} else {
-		log.Println("Skip downloading KEV")
+		log.Println("skip downloading KEV")
 	}
 
 	buf, err := k.db.read()

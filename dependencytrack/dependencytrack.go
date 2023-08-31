@@ -2,9 +2,7 @@ package dependencytrack
 
 import (
 	"context"
-	"fmt"
-	"log"
-	"strings"
+	"errors"
 	"time"
 
 	dtrack "github.com/DependencyTrack/client-go"
@@ -12,6 +10,18 @@ import (
 )
 
 type DependencyTrackClient interface {
+	GetPolicyForName(ctx context.Context, policyName string) (p dtrack.Policy, err error)
+	CreatePolicy(ctx context.Context, policy dtrack.Policy) (p dtrack.Policy, err error)
+	UpdatePolicy(ctx context.Context, policy dtrack.Policy) (p dtrack.Policy, err error)
+	NeedsUpdatePolicy(current, desierd dtrack.Policy) bool
+	AddTag(ctx context.Context, policyUUID uuid.UUID, tagName string) (p dtrack.Policy, err error)
+	DeleteTag(ctx context.Context, policyUUID uuid.UUID, tagName string) (p dtrack.Policy, err error)
+	AddProject(ctx context.Context, policyUUID, projectUUID uuid.UUID) (p dtrack.Policy, err error)
+	DeleteProject(ctx context.Context, policyUUID, projectUUID uuid.UUID) (p dtrack.Policy, err error)
+	GetProjectsForName(ctx context.Context, projectName string, excludeInactive, onlyRoot bool) (pp []dtrack.Project, err error)
+	GetProjectForNameVersion(ctx context.Context, projectName, projectVersion string, excludeInactive, onlyRoot bool) (p dtrack.Project, err error)
+	CreatePolicyCondition(ctx context.Context, policyUUID uuid.UUID, policyCondition dtrack.PolicyCondition) (p dtrack.PolicyCondition, err error)
+	DeletePolicyCondition(ctx context.Context, policyConditionUUID uuid.UUID) (err error)
 }
 
 type DependencyTrack struct {
@@ -29,295 +39,119 @@ func New(baseURL, apiKey string, timeout time.Duration) (*DependencyTrack, error
 	}, nil
 }
 
-func (d *DependencyTrack) ApplyPolicy(ctx context.Context, name, operator, violationState string, projectNameVersions, tags, cves []string) (dtrack.Policy, error) {
-	var policy dtrack.Policy
+var (
+	ErrPolicyNotFound  = errors.New("policy not found")
+	ErrProjectNotFound = errors.New("project not found")
+)
 
-	log.Printf("ApplyPolicy %q operator:%s, violationState: %s projectNameVersions:%v, tags:%v", name, operator, violationState, projectNameVersions, tags)
-
-	if err := validatePolicyOperator(dtrack.PolicyOperator(operator)); err != nil {
-		return policy, err
+func IsNotFound(err error) bool {
+	switch err {
+	case ErrPolicyNotFound:
+	case ErrProjectNotFound:
+		return true
 	}
-	if err := validatePolicyViolationState(dtrack.PolicyViolationState(violationState)); err != nil {
-		return policy, err
+
+	switch err := err.(type) {
+	case *dtrack.APIError:
+		if err.StatusCode == 404 {
+			return true
+		}
 	}
 
+	return false
+}
+
+func (d *DependencyTrack) GetPolicyForName(ctx context.Context, policyName string) (p dtrack.Policy, err error) {
 	policies, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Policy], error) {
 		return d.Client.Policy.GetAll(ctx, po)
 	})
 	if err != nil {
-		return policy, err
+		return p, err
 	}
 
-	for _, p := range policies {
-		if p.Name == name {
-			policy = p
-			break
+	for _, po := range policies {
+		if po.Name == policyName {
+			return po, nil
 		}
 	}
+	return p, ErrPolicyNotFound
+}
 
-	if policy.Name == "" {
-		newPolicy := dtrack.Policy{
-			Name:           name,
-			Operator:       dtrack.PolicyOperator(operator),
-			ViolationState: dtrack.PolicyViolationState(violationState),
-		}
-
-		log.Printf("Creating policy: %+v", newPolicy)
-		policy, err = d.Client.Policy.Create(ctx, newPolicy)
-		if err != nil {
-			return policy, err
-		}
-
-		// FIXME: https://github.com/DependencyTrack/dependency-track/issues/2365
-		policy.ViolationState = newPolicy.ViolationState
-		policy.Operator = newPolicy.Operator
-		policy, err = d.Client.Policy.Update(ctx, policy)
-		if err != nil {
-			return policy, err
-		}
-	} else {
-		switch {
-		case policy.Operator != dtrack.PolicyOperator(operator):
-		case policy.ViolationState != dtrack.PolicyViolationState(violationState):
-			policy.Operator = dtrack.PolicyOperator(operator)
-			policy.ViolationState = dtrack.PolicyViolationState(violationState)
-
-			log.Printf("Updating policy %q %+v", name, policy)
-			policy, err = d.Client.Policy.Update(ctx, policy)
-			if err != nil {
-				return policy, err
-			}
-		}
-	}
-
-	policyUUID := policy.UUID
-
-	if len(tags) > 0 {
-		remove, add := compareTags(policy.Tags, sliceToTags(tags))
-		if len(remove) > 0 {
-			log.Printf("Removing tags %v from policy %q", remove, policy.Name)
-			for _, r := range remove {
-				if _, err := d.Client.Policy.DeleteTag(ctx, policyUUID, r.Name); err != nil {
-					log.Printf("WARN: failed to remove tag %q from policy %q: %s", r.Name, policy.Name, err)
-					continue
-				}
-				log.Printf("Removed tag %q from policy %q", r.Name, policy.Name)
-			}
-		}
-		if len(add) > 0 {
-			log.Printf("Adding tags %v to policy %q", add, policy.Name)
-			for _, a := range add {
-				if _, err := d.Client.Policy.AddTag(ctx, policyUUID, a.Name); err != nil {
-					log.Printf("WARN: failed to add tag %q from policy %q: %s", a.Name, policy.Name, err)
-					continue
-				}
-				log.Printf("Added tag %q to policy %q", a.Name, policy.Name)
-			}
-		}
-	}
-
-	if len(projectNameVersions) > 0 {
-		desieredProjects := []dtrack.Project{}
-		for _, nv := range projectNameVersions {
-			projectNameVersion := strings.SplitN(nv, ":", 2)
-			if len(projectNameVersion) == 0 {
-				return policy, fmt.Errorf("invalid project name version: %q", nv)
-			}
-
-			projectName := projectNameVersion[0]
-
-			pp, err := d.Client.Project.GetProjectsForName(ctx, projectName, true, true)
-			if err != nil {
-				log.Printf("WARN: failed to get project %q: %s", projectName, err)
-				continue
-			}
-			for _, p := range pp {
-				if len(projectNameVersion) == 2 {
-					if p.Version == projectNameVersion[1] {
-						desieredProjects = append(desieredProjects, p)
-					}
-				} else {
-					desieredProjects = append(desieredProjects, p)
-				}
-			}
-
-		}
-
-		currentProjectUUIDs := projectsToProjectUUIDs(policy.Projects)
-		desieredProjectUUIDs := projectsToProjectUUIDs(desieredProjects)
-
-		remove, add := compareUUID(currentProjectUUIDs, desieredProjectUUIDs)
-		if len(remove) > 0 {
-			log.Printf("Removing projects %q from policy %q", remove, policy.Name)
-
-			for _, r := range remove {
-				if _, err := d.Client.Policy.DeleteProject(ctx, policyUUID, r); err != nil {
-					return policy, err
-				}
-
-				log.Printf("Removed project %q from policy %q", r, policy.Name)
-			}
-		}
-
-		if len(add) > 0 {
-			log.Printf("Adding projects %q to policy %q", add, policy.Name)
-
-			for _, a := range add {
-				if _, err := d.Client.Policy.AddProject(ctx, policyUUID, a); err != nil {
-					return policy, err
-				}
-
-				log.Printf("Added project %q to policy %q", a, policy.Name)
-			}
-		}
-	}
-
-	if len(cves) > 0 {
-		desieredConditions := []dtrack.PolicyCondition{}
-		for _, cve := range cves {
-			cond := dtrack.PolicyCondition{
-				Subject:  dtrack.PolicyConditionSubjectVulnerabilityID,
-				Operator: dtrack.PolicyConditionOperatorIs,
-				Value:    cve,
-			}
-			desieredConditions = append(desieredConditions, cond)
-		}
-
-		currentConditions := policy.PolicyConditions
-
-		remove, add := comparePolicyConditions(currentConditions, desieredConditions)
-		if len(remove) > 0 {
-			log.Printf("Removing conditions from policy %q", policy.Name)
-			for _, r := range remove {
-				log.Printf("Removing condition %q from policy %q", r.UUID, policy.Name)
-				if err := d.Client.PolicyCondition.Delete(ctx, r.UUID); err != nil {
-					return policy, err
-				}
-
-				log.Printf("Removed condition %q from policy %q", r.Value, policy.Name)
-			}
-		}
-
-		if len(add) > 0 {
-			log.Printf("Adding conditions from policy %q", policy.Name)
-			for _, a := range add {
-				_, err = d.Client.PolicyCondition.Create(ctx, policyUUID, a)
-				if err != nil {
-					return policy, err
-				}
-				log.Printf("Added condition %q from policy %q", a.Value, policy.Name)
-			}
-		}
-
-	}
-
-	policy, err = d.Client.Policy.Get(ctx, policyUUID)
+func (d *DependencyTrack) CreatePolicy(ctx context.Context, policy dtrack.Policy) (p dtrack.Policy, err error) {
+	po, err := d.Client.Policy.Create(ctx, policy)
 	if err != nil {
-		return policy, err
+		return p, err
 	}
 
-	return policy, nil
+	// FIXME: https://github.com/DependencyTrack/dependency-track/issues/2365
+	po.ViolationState = policy.ViolationState
+	po.Operator = policy.Operator
+	p, err = d.UpdatePolicy(ctx, po)
+	if err != nil {
+		return p, err
+	}
+
+	return p, nil
 }
 
-func comparePolicyConditions(aa, bb []dtrack.PolicyCondition) (removed, added []dtrack.PolicyCondition) {
-	aaMap := make(map[string]dtrack.PolicyCondition)
-	for _, a := range aa {
-		aaMap[a.Value] = a
-	}
-
-	for _, b := range bb {
-		_, ok := aaMap[b.Value]
-		if ok {
-			delete(aaMap, b.Value)
-			continue
-		}
-		added = append(added, b)
-	}
-
-	for _, a := range aaMap {
-		removed = append(removed, a)
-	}
-
-	return removed, added
+func (d *DependencyTrack) UpdatePolicy(ctx context.Context, policy dtrack.Policy) (p dtrack.Policy, err error) {
+	return d.Client.Policy.Update(ctx, policy)
 }
 
-func compareTags(aa, bb []dtrack.Tag) (removed, added []dtrack.Tag) {
-	aaMap := make(map[string]dtrack.Tag)
-	for _, a := range aa {
-		aaMap[a.Name] = a
+func (d *DependencyTrack) NeedsUpdatePolicy(current, desierd dtrack.Policy) bool {
+	switch {
+	case current.Operator != desierd.Operator:
+	case current.ViolationState != desierd.ViolationState:
+		return true
 	}
 
-	for _, b := range bb {
-		_, ok := aaMap[b.Name]
-		if ok {
-			delete(aaMap, b.Name)
-			continue
-		}
-		added = append(added, b)
-	}
-
-	for _, a := range aaMap {
-		removed = append(removed, a)
-	}
-
-	return removed, added
+	return false
 }
 
-func sliceToTags(slice []string) []dtrack.Tag {
-	tags := make([]dtrack.Tag, len(slice))
-	for i, s := range slice {
-		tags[i] = dtrack.Tag{Name: s}
-	}
-	return tags
+func (d *DependencyTrack) AddTag(ctx context.Context, policyUUID uuid.UUID, tagName string) (p dtrack.Policy, err error) {
+	return d.Client.Policy.AddTag(ctx, policyUUID, tagName)
 }
 
-func validatePolicyOperator(operator dtrack.PolicyOperator) error {
-	switch operator {
-	case dtrack.PolicyOperatorAny,
-		dtrack.PolicyOperatorAll:
-		return nil
-	default:
-		return fmt.Errorf("invalid PolicyOperator: %q", operator)
-	}
+func (d *DependencyTrack) DeleteTag(ctx context.Context, policyUUID uuid.UUID, tagName string) (p dtrack.Policy, err error) {
+	return d.Client.Policy.DeleteTag(ctx, policyUUID, tagName)
 }
 
-func validatePolicyViolationState(violationState dtrack.PolicyViolationState) error {
-	switch violationState {
-	case dtrack.PolicyViolationStateInfo,
-		dtrack.PolicyViolationStateWarn,
-		dtrack.PolicyViolationStateFail:
-		return nil
-	default:
-		return fmt.Errorf("invalid PolicyViolationState: %q", violationState)
-	}
+func (d *DependencyTrack) AddProject(ctx context.Context, policyUUID, projectUUID uuid.UUID) (p dtrack.Policy, err error) {
+	return d.Client.Policy.AddProject(ctx, policyUUID, projectUUID)
 }
 
-func projectsToProjectUUIDs(projects []dtrack.Project) []uuid.UUID {
-	projectUUIDs := make([]uuid.UUID, len(projects))
-	for i, p := range projects {
-		projectUUIDs[i] = p.UUID
-	}
-	return projectUUIDs
+func (d *DependencyTrack) DeleteProject(ctx context.Context, policyUUID, projectUUID uuid.UUID) (p dtrack.Policy, err error) {
+	return d.Client.Policy.DeleteProject(ctx, policyUUID, projectUUID)
 }
 
-func compareUUID(a, b []uuid.UUID) (removed, added []uuid.UUID) {
-	aMap := make(map[uuid.UUID]bool)
-	for _, element := range a {
-		aMap[element] = true
+func (d *DependencyTrack) GetProjectsForName(ctx context.Context, projectName string, excludeInactive, onlyRoot bool) (pp []dtrack.Project, err error) {
+	pp, err = d.Client.Project.GetProjectsForName(ctx, projectName, excludeInactive, onlyRoot)
+	if err != nil {
+		return pp, err
 	}
+	if len(pp) == 0 {
+		return pp, ErrProjectNotFound
+	}
+	return pp, nil
+}
 
-	for _, element := range b {
-		if _, ok := aMap[element]; ok {
-			delete(aMap, element)
-			continue
-		} else {
-			added = append(added, element)
+func (d *DependencyTrack) GetProjectForNameVersion(ctx context.Context, projectName, projectVersion string, excludeInactive, onlyRoot bool) (p dtrack.Project, err error) {
+	projects, err := d.Client.Project.GetProjectsForName(ctx, projectName, excludeInactive, onlyRoot)
+	if err != nil {
+		return p, err
+	}
+	for _, project := range projects {
+		if project.Version == projectVersion {
+			return project, nil
 		}
 	}
+	return p, ErrProjectNotFound
+}
 
-	for element := range aMap {
-		removed = append(removed, element)
-	}
+func (d *DependencyTrack) CreatePolicyCondition(ctx context.Context, policyUUID uuid.UUID, policyCondition dtrack.PolicyCondition) (p dtrack.PolicyCondition, err error) {
+	return d.Client.PolicyCondition.Create(ctx, policyUUID, policyCondition)
+}
 
-	return removed, added
+func (d *DependencyTrack) DeletePolicyCondition(ctx context.Context, policyConditionUUID uuid.UUID) (err error) {
+	return d.Client.PolicyCondition.Delete(ctx, policyConditionUUID)
 }
