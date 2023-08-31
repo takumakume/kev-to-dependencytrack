@@ -6,7 +6,7 @@ import (
 )
 
 type KEV struct {
-	db      *db
+	db      dbFetcher
 	catalog *Catalog
 }
 

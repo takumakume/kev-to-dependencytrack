@@ -20,13 +20,12 @@ const (
 type dbFetcher interface {
 	download() error
 	needsUpdate() (bool, error)
+	read() ([]byte, error)
 }
 
 type db struct {
-	url                string
-	cacheDir           string
-	filePath           string
-	downloadAtFilePath string
+	url      string
+	cacheDir string
 
 	clock clock.Clock
 }
@@ -69,12 +68,18 @@ func newDB(opts ...dbOpt) *db {
 	}
 
 	return &db{
-		url:                o.url,
-		cacheDir:           o.cacheDir,
-		filePath:           filepath.Join(o.cacheDir, DB_FILE_NAME),
-		downloadAtFilePath: filepath.Join(o.cacheDir, DB_DOWNLOAD_AT_FILE_NAME),
-		clock:              o.clock,
+		url:      o.url,
+		cacheDir: o.cacheDir,
+		clock:    o.clock,
 	}
+}
+
+func (d *db) dbFilePath() string {
+	return filepath.Join(d.cacheDir, DB_FILE_NAME)
+}
+
+func (d *db) downloadAtFilePath() string {
+	return filepath.Join(d.cacheDir, DB_DOWNLOAD_AT_FILE_NAME)
 }
 
 func (d *db) download() error {
@@ -100,12 +105,12 @@ func (d *db) download() error {
 		return err
 	}
 
-	if err := os.WriteFile(d.filePath, body, 0644); err != nil {
+	if err := os.WriteFile(d.dbFilePath(), body, 0644); err != nil {
 		return err
 	}
 
 	date := d.clock.Now().Format(time.RFC3339)
-	if err := os.WriteFile(d.downloadAtFilePath, []byte(date), 0644); err != nil {
+	if err := os.WriteFile(d.downloadAtFilePath(), []byte(date), 0644); err != nil {
 		return err
 	}
 
@@ -113,15 +118,15 @@ func (d *db) download() error {
 }
 
 func (d *db) needsUpdate() (bool, error) {
-	if _, err := os.Stat(d.filePath); err != nil {
+	if _, err := os.Stat(d.dbFilePath()); err != nil {
 		return true, nil
 	}
 
-	if _, err := os.Stat(d.downloadAtFilePath); err != nil {
+	if _, err := os.Stat(d.downloadAtFilePath()); err != nil {
 		return true, nil
 	}
 
-	downloadedAt, err := os.ReadFile(d.downloadAtFilePath)
+	downloadedAt, err := os.ReadFile(d.downloadAtFilePath())
 	if err != nil {
 		return false, err
 	}
@@ -139,5 +144,5 @@ func (d *db) needsUpdate() (bool, error) {
 }
 
 func (d *db) read() ([]byte, error) {
-	return os.ReadFile(d.filePath)
+	return os.ReadFile(d.dbFilePath())
 }
