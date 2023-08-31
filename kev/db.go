@@ -133,7 +133,8 @@ func (d *db) needsUpdate() (bool, error) {
 
 	t, err := time.Parse(time.RFC3339, string(downloadedAt))
 	if err != nil {
-		return false, err
+		// expected format is RFC3339, need to update
+		return true, nil
 	}
 
 	if d.clock.Now().Sub(t) > 24*time.Hour {
